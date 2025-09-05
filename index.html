@@ -76,7 +76,7 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        // Version du code : v5.0 (Version partagée avec config manuelle)
+        // Version du code : v5.2 (Configuration Firebase mise à jour)
 
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -84,7 +84,7 @@
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // =================================================================
-        // ÉTAPE 1 : REMPLACEZ CETTE CONFIGURATION PAR LA VÔTRE
+        // Votre configuration Firebase
         // =================================================================
         const firebaseConfig = {
           apiKey: "AIzaSyAgM1lr-9UftesPZ5O6VSXo8s2TKByK_-E",
@@ -132,7 +132,7 @@
             
             try {
                 // Vérifiez que la configuration a été mise à jour
-                if (firebaseConfig.apiKey === "VOTRE_API_KEY") {
+                if (firebaseConfig.apiKey.includes("VOTRE_API_KEY")) {
                     showStatus("Erreur : Veuillez mettre à jour la configuration Firebase dans le code.", true);
                     loadingMessage.classList.add('hidden');
                     return;
