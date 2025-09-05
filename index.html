@@ -76,12 +76,57 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        // Version du code : v4.0 (Version partagée)
+        // Version du code : v5.0 (Version partagée avec config manuelle)
 
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // =================================================================
+        // ÉTAPE 1 : REMPLACEZ CETTE CONFIGURATION PAR LA VÔTRE
+        // =================================================================
+       // Import the functions you need from the SDKs you need
+
+import { initializeApp } from "firebase/app";
+
+import { getAnalytics } from "firebase/analytics";
+
+// TODO: Add SDKs for Firebase products that you want to use
+
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+
+// Your web app's Firebase configuration
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyAgM1lr-9UftesPZ5O6VSXo8s2TKByK_-E",
+
+  authDomain: "paye-ton-gite.firebaseapp.com",
+
+  projectId: "paye-ton-gite",
+
+  storageBucket: "paye-ton-gite.firebasestorage.app",
+
+  messagingSenderId: "601950833416",
+
+  appId: "1:601950833416:web:e9110b566c34d4bcbafabd",
+
+  measurementId: "G-HWC1KJGMTP"
+
+};
+
+
+// Initialize Firebase
+
+const app = initializeApp(firebaseConfig);
+
+const analytics = getAnalytics(app);
+        };
+        // =================================================================
 
         // Déclaration des variables globales
         let app;
@@ -117,12 +162,9 @@
             const resetButton = document.getElementById('reset-button');
             
             try {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-                if (!firebaseConfig) {
-                    showStatus("Erreur : La configuration Firebase est manquante. Cette application doit être lancée dans un environnement Canvas.", true);
+                // Vérifiez que la configuration a été mise à jour
+                if (firebaseConfig.apiKey === "VOTRE_API_KEY") {
+                    showStatus("Erreur : Veuillez mettre à jour la configuration Firebase dans le code.", true);
                     loadingMessage.classList.add('hidden');
                     return;
                 }
@@ -131,14 +173,11 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Authentification anonyme pour permettre l'accès
+                await signInAnonymously(auth);
 
-                const publicPath = `/artifacts/${appId}/public/data/paye_ton_gite`;
-                potDocRef = doc(db, publicPath, "main-pot");
+                // Référence au document de la cagnotte
+                potDocRef = doc(db, "cagnotte-gite", "cagnotte-unique");
                 
                 // Active les boutons une fois que la connexion est établie
                 addButton.disabled = false;
@@ -210,4 +249,3 @@
     </script>
 </body>
 </html>
-
