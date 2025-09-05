@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paye ton Gite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .text-shadow-custom {
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-amber-50 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Conteneur principal de l'application -->
+    <div id="app-container" class="w-full max-w-xl bg-white p-8 rounded-3xl shadow-2xl border-4 border-amber-300 transform scale-100 transition-transform duration-300">
+
+        <!-- Titre et description -->
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-center text-amber-800 mb-2 text-shadow-custom">
+            Paye ton Gite
+        </h1>
+        <p class="text-center text-amber-600 mb-8 font-semibold">
+            Contribuez en temps réel à la cagnotte du séjour.
+        </p>
+        
+        <!-- Affichage du montant actuel -->
+        <div class="flex flex-col items-center justify-center space-y-4 mb-10">
+            <div class="bg-amber-500 text-white rounded-full p-4 px-8 text-xl font-bold tracking-wide shadow-lg">
+                Montant Actuel
+            </div>
+            <div id="pot-display" class="text-6xl sm:text-7xl font-black text-amber-700 tracking-tight transition-all duration-500 transform scale-100 hover:scale-105">
+                0 €
+            </div>
+            <div id="loading" class="text-sm text-gray-500">
+                Connexion à la cagnotte...
+            </div>
+        </div>
+        
+        <!-- Contribution count display -->
+        <div class="flex flex-col items-center justify-center space-y-2 mb-8">
+            <div class="bg-gray-400 text-white rounded-full p-2 px-6 text-sm font-bold tracking-wide shadow-lg">
+                Contributions
+            </div>
+            <div id="contribution-count" class="text-3xl font-bold text-gray-700">
+                0
+            </div>
+        </div>
+
+        <!-- Section pour ajouter des fonds -->
+        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+            <input type="number" id="donation-input" placeholder="Montant à ajouter" 
+                   class="w-full sm:w-1/2 p-3 text-lg text-center rounded-2xl border-2 border-amber-300 focus:ring-4 focus:ring-amber-400 focus:border-amber-400 transition-colors duration-200">
+            <button onclick="addDonation()" id="add-button" disabled
+                    class="w-full sm:w-auto p-3 text-lg font-bold text-white bg-gray-400 rounded-2xl shadow-lg transition-all duration-200">
+                Ajouter
+            </button>
+        </div>
+
+        <!-- Bouton pour remettre à zéro -->
+        <div class="text-center">
+            <button onclick="resetPot()" id="reset-button" disabled
+                    class="w-full sm:w-auto px-6 py-2 text-md font-semibold text-red-600 border-2 border-red-500 rounded-2xl hover:bg-red-50 hover:text-red-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                Remettre à Zéro
+            </button>
+        </div>
+        
+        <!-- Message de statut -->
+        <div id="status-message" class="text-center mt-4 text-sm font-medium hidden"></div>
+        
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Version du code : v4.0 (Version partagée)
+
+        // Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Déclaration des variables globales
+        let app;
+        let auth;
+        let db;
+        let potDocRef;
+        let potSubscription;
+
+        // Fonction pour afficher des messages de statut
+        const showStatus = (message, isError = false) => {
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden');
+            if (isError) {
+                statusMessage.classList.remove('text-green-600');
+                statusMessage.classList.add('text-red-600');
+            } else {
+                statusMessage.classList.remove('text-red-600');
+                statusMessage.classList.add('text-green-600');
+            }
+        };
+
+        // Fonction pour mettre à jour l'affichage
+        const updateDisplay = (amount, contributions) => {
+            document.getElementById('pot-display').textContent = `${amount.toFixed(2)} €`;
+            document.getElementById('contribution-count').textContent = contributions;
+        };
+        
+        // Initialisation de l'application
+        const initApp = async () => {
+            const loadingMessage = document.getElementById('loading');
+            const addButton = document.getElementById('add-button');
+            const resetButton = document.getElementById('reset-button');
+            
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                if (!firebaseConfig) {
+                    showStatus("Erreur : La configuration Firebase est manquante. Cette application doit être lancée dans un environnement Canvas.", true);
+                    loadingMessage.classList.add('hidden');
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                const publicPath = `/artifacts/${appId}/public/data/paye_ton_gite`;
+                potDocRef = doc(db, publicPath, "main-pot");
+                
+                // Active les boutons une fois que la connexion est établie
+                addButton.disabled = false;
+                addButton.classList.remove('bg-gray-400');
+                addButton.classList.add('bg-green-500', 'hover:bg-green-600', 'focus:ring-green-400');
+                
+                resetButton.disabled = false;
+                
+                loadingMessage.classList.add('hidden');
+                showStatus("Connecté à la cagnotte !", false);
+                
+                // Écoute les changements en temps réel
+                potSubscription = onSnapshot(potDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        updateDisplay(data.amount || 0, data.contributions || 0);
+                    } else {
+                        // Crée le document s'il n'existe pas
+                        setDoc(potDocRef, { amount: 0, contributions: 0 });
+                        updateDisplay(0, 0);
+                    }
+                }, (error) => {
+                    console.error("Erreur lors de la mise à jour en temps réel :", error);
+                    showStatus("Erreur de connexion en temps réel.", true);
+                });
+
+            } catch (error) {
+                console.error("Erreur critique lors de l'initialisation :", error);
+                loadingMessage.textContent = 'Erreur critique. Veuillez recharger la page.';
+                showStatus("Erreur critique. Impossible de se connecter à la base de données.", true);
+            }
+        };
+
+        // Fonctions pour les boutons, rendues globales
+        window.addDonation = async () => {
+            const donationInput = document.getElementById('donation-input');
+            const donationAmount = parseFloat(donationInput.value);
+            
+            if (isNaN(donationAmount) || donationAmount <= 0) {
+                showStatus("Veuillez entrer un montant valide.", true);
+                return;
+            }
+
+            try {
+                await updateDoc(potDocRef, { 
+                    amount: increment(donationAmount),
+                    contributions: increment(1)
+                });
+                donationInput.value = '';
+                showStatus("Montant ajouté avec succès !", false);
+            } catch (error) {
+                console.error("Erreur lors de l'ajout du montant :", error);
+                showStatus("Erreur lors de l'ajout. Veuillez réessayer.", true);
+            }
+        };
+
+        window.resetPot = async () => {
+            try {
+                await setDoc(potDocRef, { amount: 0, contributions: 0 });
+                showStatus("La cagnotte a été remise à zéro.", false);
+            } catch (error) {
+                console.error("Erreur lors de la remise à zéro :", error);
+                showStatus("Erreur lors de la remise à zéro. Veuillez réessayer.", true);
+            }
+        };
+
+        // Démarrage de l'application
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
